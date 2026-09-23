@@ -88,8 +88,26 @@ scheduler.start()
 
 @app.on_event("startup")
 async def on_startup():
-    global main_loop
+    global main_loop, state
     main_loop = asyncio.get_running_loop()
+    
+    # Cargar y activar programador automáticamente si estaba habilitado
+    try:
+        cfg = load_config()
+        sched_cfg = cfg.get("scheduler", {})
+        if sched_cfg.get("enabled", False):
+            interval = sched_cfg.get("interval_hours", 12)
+            state.schedule_enabled = True
+            state.schedule_interval_hours = interval
+            
+            def job_wrapper():
+                c = load_config()
+                execute_bot_cycle(c, main_loop)
+                
+            scheduler.add_job(job_wrapper, 'interval', hours=interval, id="auto_apply_job")
+            print(f"[SCHEDULER] Auto-pilot initialized: running every {interval} hours.")
+    except Exception as e:
+        print(f"[SCHEDULER] Startup warning: {e}")
 
 def load_config() -> Dict[str, Any]:
     if not os.path.exists(CONFIG_PATH):
@@ -348,12 +366,22 @@ def update_scheduler(enabled: bool = Form(...), interval_hours: int = Form(...))
     state.schedule_enabled = enabled
     state.schedule_interval_hours = interval_hours
     
+    # Guardar en config.yaml para que sobreviva a reinicios
+    try:
+        cfg = load_config()
+        cfg["scheduler"] = {
+            "enabled": enabled,
+            "interval_hours": interval_hours
+        }
+        save_config(cfg)
+    except Exception as e:
+        print(f"[SCHEDULER] Warning saving config: {e}")
+
     scheduler.remove_all_jobs()
     if enabled and interval_hours > 0:
-        loop = asyncio.get_event_loop()
         def job_wrapper():
-            cfg = load_config()
-            execute_bot_cycle(cfg, loop)
+            c = load_config()
+            execute_bot_cycle(c, main_loop)
         scheduler.add_job(job_wrapper, 'interval', hours=interval_hours, id="auto_apply_job")
         
     return {

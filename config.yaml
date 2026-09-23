@@ -163,6 +163,11 @@ title_filters:
     - "logistica"
     - "abastecimiento"
 
+# Programador automático en segundo plano (Auto-pilot)
+scheduler:
+  enabled: false
+  interval_hours: 12
+
 bot_settings:
   # Modo visual (headless: false muestra la ventana del navegador)
   headless: false
@@ -172,6 +177,6 @@ bot_settings:
   min_delay_sec: 2.5
   max_delay_sec: 5.0
   # Filtro de fecha en LinkedIn (r86400 = últimas 24 horas, r604800 = última semana)
-  date_posted_filter: "r604800" # Última semana para mayor volumen de ofertas válidas
+  date_posted_filter: "r86400" # Últimas 24 horas para captar ofertas frescas
   # Base de datos local para no repetir postulaciones
   database_path: "data/applications.db"
