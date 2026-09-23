@@ -1,0 +1,177 @@
+# Configuración del Auto-Apply Bot para Paulo Espinoza
+
+personal_info:
+  first_name: "Paulo Daniel"
+  last_name: "Espinoza Gamboa"
+  full_name: "Paulo Daniel Espinoza Gamboa"
+  email: "pauloespinoza951@gmail.com"
+  phone_country_code: "Peru (+51)"
+  phone_number: "906920958"
+  city: "Lima"
+  country: "Peru"
+  linkedin_url: "https://www.linkedin.com/in/paulo-espinoza9/"
+  github_url: "https://github.com/paulollito29-sketch"
+
+# Rutas de CVs (relativas a la raíz del proyecto)
+resumes:
+  fullstack: "resumes/CV_Paulo_Espinoza_FullStack.pdf"
+  data: "resumes/CV_Paulo_Espinoza_DataAnalyst.pdf"
+  default: "resumes/CV_Paulo_Espinoza_FullStack.pdf"
+
+# Respuestas automáticas a preguntas comunes de formularios
+form_answers:
+  # Años de experiencia con tecnologías específicas
+  experience_years:
+    java: 1
+    spring: 1
+    react: 1
+    javascript: 1
+    sql: 1
+    mysql: 1
+    postgresql: 1
+    git: 1
+    power bi: 1
+    python: 1
+    html: 1
+    css: 1
+    rest api: 1
+    default: 1
+
+  # Preguntas de selección múltiple o Sí/No
+  boolean_questions:
+    # Autorización de trabajo
+    legally authorized: true
+    autorizado para trabajar: true
+    require sponsorship: false
+    requiere patrocinio: false
+    visa sponsorship: false
+    background check: true
+    drug test: true
+    18 years: true
+    mayor de edad: true
+    student: true
+    estudiante: true
+    graduated: false
+    egresado: false
+    willing to relocate: false
+    dispuesto a reubicarte: false
+    remote work: true
+    trabajo remoto: true
+
+  # Niveles de idiomas / educación
+  text_mappings:
+    english: "Professional working proficiency"
+    ingles: "Avanzado (C1)"
+    spanish: "Native or bilingual"
+    espanol: "Nativo"
+    education: "Bachelor's Degree in Progress"
+    educacion: "Universitario en curso"
+    university: "Universidad Peruana de Ciencias Aplicadas"
+    salary_expectation: "1200" # Expectativa salarial practicante en soles / o moneda local
+
+# Configuración de búsquedas de empleo
+job_searches:
+  - query: "Practicante Sistemas"
+    location: "Lima, Perú"
+    type: "fullstack"
+  - query: "Practicante Desarrollo"
+    location: "Lima, Perú"
+    type: "fullstack"
+  - query: "Practicante Java"
+    location: "Lima, Perú"
+    type: "fullstack"
+  - query: "Junior Full Stack Developer"
+    location: "Remote"
+    type: "fullstack"
+  - query: "Practicante SQL"
+    location: "Lima, Perú"
+    type: "data"
+  - query: "Practicante Datos"
+    location: "Lima, Perú"
+    type: "data"
+  - query: "Junior Data Analyst"
+    location: "Remote"
+    type: "data"
+
+# Filtros estrictos de títulos de trabajo (para evitar postular a cosas no tech como mesero, ventas, etc.)
+title_filters:
+  whitelist_keywords:
+    - "developer"
+    - "desarrollador"
+    - "programador"
+    - "software"
+    - "sistemas"
+    - "informática"
+    - "informatica"
+    - "frontend"
+    - "front-end"
+    - "backend"
+    - "back-end"
+    - "full stack"
+    - "fullstack"
+    - "full-stack"
+    - "java"
+    - "react"
+    - "python"
+    - "sql"
+    - "data"
+    - "datos"
+    - "analista"
+    - "analytics"
+    - "bi"
+    - "power bi"
+    - "qa"
+    - "tester"
+    - "ti"
+    - "it"
+    - "practicante"
+    - "intern"
+    - "trainee"
+    - "junior"
+    - "jr"
+
+  blacklist_keywords:
+    - "mesero"
+    - "mozo"
+    - "vendedor"
+    - "ventas"
+    - "comercial"
+    - "cajero"
+    - "recepcionista"
+    - "chofer"
+    - "conductor"
+    - "cocinero"
+    - "almacen"
+    - "almacén"
+    - "enfermer"
+    - "abogado"
+    - "financiero"
+    - "contable"
+    - "contador"
+    - "medico"
+    - "médico"
+    - "call center"
+    - "teleoperador"
+    - "asesor de atencion"
+    - "asesor de ventas"
+    - "ejecutivo de ventas"
+    - "community manager"
+    - "social media"
+    - "marketing"
+    - "diseñador"
+    - "diseño grafico"
+    - "logistica"
+    - "abastecimiento"
+
+bot_settings:
+  # Modo visual (headless: false muestra la ventana del navegador)
+  headless: false
+  # Máximo de solicitudes a enviar por ejecución (recomendado: 15-30 para evitar bloqueos)
+  max_applications_per_run: 25
+  # Pausa mínima y máxima entre acciones en segundos (simula comportamiento humano)
+  min_delay_sec: 2.5
+  max_delay_sec: 5.0
+  # Filtro de fecha en LinkedIn (r86400 = últimas 24 horas, r604800 = última semana)
+  date_posted_filter: "r604800" # Última semana para mayor volumen de ofertas válidas
+  # Base de datos local para no repetir postulaciones
+  database_path: "data/applications.db"
