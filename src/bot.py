@@ -132,12 +132,27 @@ class LinkedInEasyApplyBot:
         console.print(f"\n[bold green]🏁 Finalizado. Total de solicitudes enviadas en este ciclo: {self.applied_count}[/bold green]")
         self.tracker.export_to_csv()
 
+    def safe_click(self, page: Page, element: ElementHandle, timeout: int = 5000) -> bool:
+        """Clicks an element safely using native click or JS fallback to avoid pointer interception hangs."""
+        if not element:
+            return False
+        try:
+            element.scroll_into_view_if_needed(timeout=timeout)
+            element.click(timeout=timeout)
+            return True
+        except Exception:
+            try:
+                element.evaluate("el => el.click()")
+                return True
+            except Exception:
+                return False
+
     def process_search_page(self, page: Page, url: str, query: str, profile_type: str):
         try:
-            page.goto(url, wait_until="domcontentloaded", timeout=45000)
-            self.sleep_random(1.5)
+            page.goto(url, wait_until="domcontentloaded", timeout=25000)
+            self.sleep_random(1.2)
         except Exception as e:
-            console.print(f"[red]Error cargando página de búsqueda: {e}[/red]")
+            console.print(f"[yellow]Aviso cargando búsqueda ({query}): {e}[/yellow]")
             return
 
         job_cards = page.query_selector_all(".jobs-search-results-list li.jobs-search-results__list-item, div.job-card-container, div[data-occludable-job-id]")
@@ -161,10 +176,9 @@ class LinkedInEasyApplyBot:
                 if not job_id or self.tracker.is_already_applied(job_id):
                     continue
 
-                # Hacer clic en la tarjeta
-                card.scroll_into_view_if_needed()
-                card.click()
-                self.sleep_random(0.8)
+                # Clic seguro en la tarjeta
+                self.safe_click(page, card, timeout=3000)
+                self.sleep_random(0.6)
 
                 # Obtener Título y Empresa
                 title_elem = page.query_selector(".job-details-jobs-unified-top-card__job-title, .jobs-unified-top-card__job-title, h1.t-24")
@@ -176,10 +190,10 @@ class LinkedInEasyApplyBot:
                 location_elem = page.query_selector(".job-details-jobs-unified-top-card__bullet, .jobs-unified-top-card__bullet")
                 loc_text = location_elem.inner_text().strip() if location_elem else ""
 
-                # Validar relevancia del título (Evitar meseros, cajeros, etc.)
+                # Validar relevancia del título
                 is_relevant, reason = self.is_title_relevant(title)
                 if not is_relevant:
-                    console.print(f"[grey50]⏭ Ignorando oferta no relevante ({reason}): '{title}' en {company}[/grey50]")
+                    console.print(f"[grey50]⏭ Ignorando ({reason}): '{title}' en {company}[/grey50]")
                     continue
 
                 console.print(f"\n[bold white]🎯 Evaluando oferta tech:[/bold white] [bold cyan]{title}[/bold cyan] en [green]{company}[/green]")
@@ -187,12 +201,14 @@ class LinkedInEasyApplyBot:
                 # Localizar botón Easy Apply
                 apply_btn = page.query_selector("button.jobs-apply-button, button.jobs-apply-button--top-card")
                 if not apply_btn or not any(text in apply_btn.inner_text() for text in ["Easy Apply", "Solicitud sencilla", "Solicitar"]):
-                    console.print(f"[grey62]No tiene Easy Apply directo, omitiendo.[/grey62]")
+                    console.print(f"[grey62]Sin Easy Apply directo, omitiendo.[/grey62]")
                     continue
 
-                # Clic en Easy Apply
-                apply_btn.click()
-                self.sleep_random(1.2)
+                # Clic seguro en Easy Apply
+                clicked = self.safe_click(page, apply_btn, timeout=4000)
+                if not clicked:
+                    continue
+                self.sleep_random(1.0)
 
                 # Resolver formulario
                 success, note = self.handle_easy_apply_modal(page, profile_type, title)
@@ -206,10 +222,10 @@ class LinkedInEasyApplyBot:
                     console.print(f"[yellow]⏩ Omitido ({note}): {title}[/yellow]")
                     self.tracker.record_application(job_id, title, company, loc_text, job_url, query, "SKIPPED", note)
 
-                self.sleep_random(1.5)
+                self.sleep_random(1.0)
 
             except Exception as e:
-                console.print(f"[red]Error procesando tarjeta: {str(e)}[/red]")
+                console.print(f"[yellow]Aviso procesando tarjeta: {str(e)[:80]}[/yellow]")
                 continue
 
     def handle_easy_apply_modal(self, page: Page, profile_type: str, job_title: str) -> Tuple[bool, str]:
@@ -220,7 +236,7 @@ class LinkedInEasyApplyBot:
 
         while step < max_steps:
             step += 1
-            self.sleep_random(0.8)
+            self.sleep_random(0.6)
 
             modal = page.query_selector("div.jobs-easy-apply-modal, div[role='dialog']")
             if not modal:
@@ -231,7 +247,6 @@ class LinkedInEasyApplyBot:
             for inp in text_inputs:
                 try:
                     current_val = inp.input_value()
-                    # Extraer el texto de la pregunta/etiqueta asociada
                     label_text = inp.evaluate("""el => {
                         let id = el.id;
                         if (id) {
@@ -250,16 +265,21 @@ class LinkedInEasyApplyBot:
                     input_type = inp.get_attribute("type") or "text"
                     resolved_val = self.solver.resolve_text_input(label_text, input_type)
 
-                    # Si el campo está vacío o es un número/salario, llenarlo
                     if resolved_val and (not current_val or current_val == "0" or input_type == "number"):
                         inp.fill("")
                         inp.fill(resolved_val)
-                        console.print(f"  [cyan]Campo llenado:[/cyan] '{label_text.strip()[:40]}...' -> [bold green]{resolved_val}[/bold green]")
-                        self.sleep_random(0.2)
+                        console.print(f"  [cyan]Campo llenado:[/cyan] '{label_text.strip()[:35]}...' -> [bold green]{resolved_val}[/bold green]")
+                        self.sleep_random(0.15)
                 except Exception:
                     pass
 
-            # 2. Resolver Selects / Dropdowns estándar
+            # Cerrar cualquier popup de sugerencias flotante
+            try:
+                page.keyboard.press("Escape")
+            except Exception:
+                pass
+
+            # 2. Resolver Selects / Dropdowns
             selects = modal.query_selector_all("select")
             for sel in selects:
                 try:
@@ -281,12 +301,12 @@ class LinkedInEasyApplyBot:
                     chosen_opt = self.solver.resolve_dropdown(label_text, options)
                     if chosen_opt:
                         sel.select_option(label=chosen_opt)
-                        console.print(f"  [cyan]Dropdown seleccionado:[/cyan] '{label_text.strip()[:40]}...' -> [bold green]{chosen_opt}[/bold green]")
-                        self.sleep_random(0.2)
+                        console.print(f"  [cyan]Dropdown seleccionado:[/cyan] '{label_text.strip()[:35]}...' -> [bold green]{chosen_opt}[/bold green]")
+                        self.sleep_random(0.15)
                 except Exception:
                     pass
 
-            # 3. Resolver Grupos de Radio Buttons (Fieldsets)
+            # 3. Resolver Radio Buttons
             fieldsets = modal.query_selector_all("fieldset")
             for fs in fieldsets:
                 try:
@@ -302,21 +322,20 @@ class LinkedInEasyApplyBot:
                         if chosen_text and chosen_text.lower() in lbl.inner_text().lower():
                             radio_input = lbl.query_selector("input[type='radio']")
                             if radio_input and not radio_input.is_checked():
-                                lbl.click()
-                                console.print(f"  [cyan]Radio marcado:[/cyan] '{legend_text.strip()[:40]}...' -> [bold green]{chosen_text}[/bold green]")
-                                self.sleep_random(0.2)
+                                self.safe_click(page, lbl, timeout=2000)
+                                console.print(f"  [cyan]Radio marcado:[/cyan] '{legend_text.strip()[:35]}...' -> [bold green]{chosen_text}[/bold green]")
+                                self.sleep_random(0.15)
                             break
                 except Exception:
                     pass
 
-            # 4. Resolver Checkboxes (Términos, privacidad, etc.)
+            # 4. Resolver Checkboxes
             checkboxes = modal.query_selector_all("input[type='checkbox']")
             for cb in checkboxes:
                 try:
                     if not cb.is_checked():
-                        # Generalmente son acuerdos de consentimiento o privacidad
-                        cb.check(force=True)
-                        self.sleep_random(0.2)
+                        cb.check(force=True, timeout=2000)
+                        self.sleep_random(0.15)
                 except Exception:
                     pass
 
@@ -326,35 +345,35 @@ class LinkedInEasyApplyBot:
                 try:
                     file_input.set_input_files(resume_path)
                     console.print(f"  [magenta]📄 CV adjuntado:[/magenta] {os.path.basename(resume_path)}")
-                    self.sleep_random(0.8)
+                    self.sleep_random(0.5)
                 except Exception:
                     pass
 
             # 6. Comprobar botón de Enviar / Submit final
             submit_btn = modal.query_selector("button[aria-label='Submit application'], button[aria-label='Enviar solicitud'], button:has-text('Submit application'), button:has-text('Enviar solicitud')")
             if submit_btn and submit_btn.is_visible():
-                submit_btn.click()
                 console.print("  [bold green]Enviando solicitud final...[/bold green]")
-                self.sleep_random(2.0)
+                self.safe_click(page, submit_btn, timeout=3000)
+                self.sleep_random(1.5)
                 
                 # Cerrar modal de confirmación
                 close_btn = page.query_selector("button[aria-label='Dismiss'], button[aria-label='Descartar'], button.artdeco-modal__dismiss")
                 if close_btn:
-                    close_btn.click()
+                    self.safe_click(page, close_btn, timeout=2000)
                 return True, "Enviado exitosamente"
 
             # 7. Comprobar botón Revisar / Review
             review_btn = modal.query_selector("button[aria-label='Review your application'], button[aria-label='Revisar solicitud'], button:has-text('Review'), button:has-text('Revisar')")
             if review_btn and review_btn.is_visible():
-                review_btn.click()
-                self.sleep_random(0.8)
+                self.safe_click(page, review_btn, timeout=3000)
+                self.sleep_random(0.6)
                 continue
 
             # 8. Comprobar botón Siguiente / Next
             next_btn = modal.query_selector("button[aria-label='Continue to next step'], button[aria-label='Continuar al siguiente paso'], button:has-text('Next'), button:has-text('Siguiente')")
             if next_btn and next_btn.is_visible():
-                next_btn.click()
-                self.sleep_random(0.8)
+                self.safe_click(page, next_btn, timeout=3000)
+                self.sleep_random(0.6)
                 
                 # Verificar si quedaron campos requeridos con error
                 error = modal.query_selector(".artdeco-inline-feedback--error, div[data-test-form-element-error-messages]")
@@ -362,7 +381,7 @@ class LinkedInEasyApplyBot:
                     err_msg = error.inner_text().strip()
                     console.print(f"  [yellow]⚠ Campo requerido bloqueante: {err_msg}[/yellow]")
                     self.dismiss_modal(page)
-                    return False, f"Pregunta compleja/bloqueante: {err_msg}"
+                    return False, f"Pregunta compleja: {err_msg}"
                 continue
 
             # Si no hay botones de acción visibles
