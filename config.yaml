@@ -162,6 +162,12 @@ title_filters:
     - "diseño grafico"
     - "logistica"
     - "abastecimiento"
+    - "caja"
+    - "cajero"
+    - "administrativo"
+    - "administrativa"
+    - "secretaria"
+    - "secretario"
 
 # Programador automático en segundo plano (Auto-pilot)
 scheduler:
