@@ -71,6 +71,7 @@ class LogBroadcaster:
             self.disconnect(dead)
 
 broadcaster = LogBroadcaster()
+main_loop: Optional[asyncio.AbstractEventLoop] = None
 
 # Bot state management
 class BotState:
@@ -84,6 +85,11 @@ class BotState:
 state = BotState()
 scheduler = BackgroundScheduler()
 scheduler.start()
+
+@app.on_event("startup")
+async def on_startup():
+    global main_loop
+    main_loop = asyncio.get_running_loop()
 
 def load_config() -> Dict[str, Any]:
     if not os.path.exists(CONFIG_PATH):
@@ -99,17 +105,20 @@ def check_linkedin_session() -> bool:
     profile_dir = Path("data/browser_profile")
     if not profile_dir.exists():
         return False
-    # Check if cookies or storage state exists in profile
     default_dir = profile_dir / "Default"
     return default_dir.exists() and (default_dir / "Cookies").exists()
 
 # Custom logger hook for the bot to stream logs via WebSockets
 class WebLoggerHook:
-    def __init__(self, loop: asyncio.AbstractEventLoop):
-        self.loop = loop
+    def __init__(self, loop: Optional[asyncio.AbstractEventLoop] = None):
+        self.loop = loop or main_loop
 
     def log(self, message: str, level: str = "info", meta: Optional[Dict] = None):
-        asyncio.run_coroutine_threadsafe(broadcaster.broadcast(message, level, meta), self.loop)
+        target_loop = self.loop or main_loop
+        if target_loop and target_loop.is_running():
+            asyncio.run_coroutine_threadsafe(broadcaster.broadcast(message, level, meta), target_loop)
+        else:
+            print(f"[{level.upper()}] {message}")
 
 def execute_bot_cycle(config: Dict[str, Any], loop: asyncio.AbstractEventLoop):
     global state
@@ -259,11 +268,11 @@ def get_status():
     }
 
 @app.post("/api/run/start")
-def start_run():
+async def start_run():
     if state.is_running:
         return {"status": "already_running"}
     config = load_config()
-    loop = asyncio.get_event_loop()
+    loop = asyncio.get_running_loop()
     threading.Thread(target=execute_bot_cycle, args=(config, loop), daemon=True).start()
     return {"status": "started"}
 
